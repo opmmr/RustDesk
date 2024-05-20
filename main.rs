@@ -5,26 +5,26 @@ use std::env;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-async fn start_session(data: web::Json<SessionRequest>, sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
-    let mut sessions = sessions.lock().unwrap();
+async fn initiate_session(session_data: web::Json<SessionRequest>, active_sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
+    let mut active_sessions = active_sessions.lock().unwrap();
     // Adding session to our "database"
-    sessions.insert(data.id.clone(), data.user.clone());
-    HttpResponse::Ok().body("Session started")
+    active_sessions.insert(session_data.id.clone(), session_data.user.clone());
+    HttpResponse::Ok().body("Session initiated")
 }
 
-async fn stop_session(session_id: web::Path<String>, sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
-    let mut sessions = sessions.lock().unwrap();
-    if sessions.remove(&session_id.into_inner()).is_some() {
-        HttpResponse::Ok().body(format!("Session stopped"))
+async fn terminate_session(session_id: web::Path<String>, active_sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
+    let mut active_sessions = active_sessions.lock().unwrap();
+    if active_sessions.remove(&session_id.into_inner()).is_some() {
+        HttpResponse::Ok().body("Session terminated")
     } else {
         HttpResponse::NotFound().body("Session not found")
     }
 }
 
-// New function to check the status of a session
-async fn session_status(session_id: web::Path<String>, sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
-    let sessions = sessions.lock().unwrap();
-    if sessions.contains_key(&session_id.into_inner()) {
+// Function to check if a session is active
+async fn check_session_status(session_id: web::Path<String>, active_sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
+    let active_sessions = active_sessions.lock().unwrap();
+    if active_sessions.contains_key(&session_id.into_inner()) {
         HttpResponse::Ok().body("Session is active")
     } else {
         HttpResponse::NotFound().body("Session not found")
@@ -33,7 +33,7 @@ async fn session_status(session_id: web::Path<String>, sessions: web::Data<Mutex
 
 #[derive(serde::Deserialize, Clone)]
 struct SessionRequest {
-    id: String,  // Assuming each session should have an ID for tracking
+    id: String,
     user: String,
 }
 
@@ -42,20 +42,19 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     env_logger::init();
 
-    let server_url = env::var("SERVER_URL").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+    let server_address = env::var("SERVER_URL").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
 
-    // Create a shared state for sessions
-    let sessions_data = web::Data::new(Mutex::new(HashMap::<String, String>::new()));
+    let shared_session_store = web::Data::new(Mutex::new(HashMap::<String, String>::new()));
 
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .app_data(sessions_data.clone()) // Add shared data to the app
-            .route("/start_session", web::post().to(start_session))
-            .route("/stop_session/{session_id}", web::delete().to(stop_session))
-            .route("/session_status/{session_id}", web::get().to(session_status))  // New route for session status
+            .app_data(shared_session_store.clone()) // Add shared data to the app
+            .route("/initiate_session", web::post().to(initiate_session))
+            .route("/terminate_session/{session_id}", web::delete().to(terminate_session))
+            .route("/check_session_status/{session_id}", web::get().to(check_session_status)) // New route for checking session status
     })
-    .bind(server_url)?
+    .bind(server_address)?
     .run()
     .await
 }
