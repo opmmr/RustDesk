@@ -1,27 +1,28 @@
-use actix_web::{web, App, HttpServer, Responder, HttpResponse, middleware::Logger};
+use actix_web::{web, App, HttpServer, HttpResponse, Responder, middleware::Logger};
 use std::env;
 
 async fn start_remote_session() -> impl Responder {
-    "Remote session started"
+    HttpResponse::Ok().body("Remote session started")
 }
 
 async fn end_remote_session() -> impl Responder {
-    "Remote session ended"
+    HttpResponse::Ok().body("Remote session ended")
 }
 
-#[actix_rt::main]
+#[actix_web::main] 
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
-    let server_url = env::var("SERVER_URL").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
-
-    std::env::set_var("RUST_LOG", "actix_web=info");
+    let server_url = env::var("SERVER_URL").unwrap_or("127.0.0.1:8080".to_string());
     env_logger::init();
 
-    HttpServer::new(move || {
+    HttpServer::new(|| {
         App::new()
-            .wrap(Logger::default())
-            .route("/start", web::get().to(start_remote_session))
-            .route("/end", web::get().to(end_remote_session))
+            .wrap(Logger::new("%a \"%r\" %s %b %Dms"))
+            .service(
+                web::scope("/session")
+                    .route("/start", web::get().to(start_remote_session))
+                    .route("/end", web::get().to(end_remote_session)),
+            )
     })
     .bind(&server_url)?
     .run()
