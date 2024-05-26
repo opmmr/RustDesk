@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer, HttpResponse, Responder};
+use actix_web::{web, App, HttpServer, HttpResponse, Responder, http::StatusCode};
 use actix_web::middleware::Logger;
 use dotenv::dotenv;
 use std::env;
@@ -6,13 +6,21 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 async fn initiate_session(session_data: web::Json<SessionRequest>, active_sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
-    let mut active_sessions = active_sessions.lock().unwrap();
+    let mut active_sessions = match active_sessions.lock() {
+        Ok(guard) => guard,
+        Err(_) => return HttpResponse::InternalServerError().body("Failed to lock session store."),
+    };
+    
     active_sessions.insert(session_data.id.clone(), session_data.user.clone());
     HttpResponse::Ok().body("Session initiated")
 }
 
 async fn terminate_session(session_id: web::Path<String>, active_sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
-    let mut active_sessions = active_sessions.lock().unwrap();
+    let mut active_sessions = match active_sessions.lock() {
+        Ok(guard) => guard,
+        Err(_) => return HttpResponse::InternalServerError().body("Failed to lock session store."),
+    };
+
     if active_sessions.remove(&*session_id).is_some() {
         HttpResponse::Ok().body("Session terminated")
     } else {
@@ -21,7 +29,11 @@ async fn terminate_session(session_id: web::Path<String>, active_sessions: web::
 }
 
 async fn check_session_status(session_id: web::Path<String>, active_sessions: web::Data<Mutex<HashMap<String, String>>>) -> impl Responder {
-    let active_sessions = active_sessions.lock().unwrap();
+    let active_sessions = match active_sessions.lock() {
+        Ok(guard) => guard,
+        Err(_) => return HttpResponse::InternalServerError().body("Failed to lock session store."),
+    };
+    
     if active_sessions.contains_key(&*session_id) {
         HttpResponse::Ok().body("Session is active")
     } else {
@@ -40,7 +52,10 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     env_logger::init();
 
-    let server_address = env::var("SERVER_URL").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+    let server_address = env::var("SERVER_URL").unwrap_or("127.0.0.1:8080".to_string()).map_err(|_| {
+        eprintln!("Failed to read SERVER_URL from environment. Using default.");
+        std::io::Error::new(std::io::ErrorKind::NotFound, "SERVER_URL not found")
+    })?;
 
     let shared_session_store = web::Data::new(Mutex::new(HashMap::<String, String>::new()));
 
