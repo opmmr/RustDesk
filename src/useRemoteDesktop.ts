@@ -28,37 +28,44 @@ export const useRemoteDesktop = (): UseRemoteDesktopHook => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [reconnectAttempts, setReconnectAttempts] = useState<number>(0);
 
-  const handleConnectionClose = useCallback(() => {
+  const connectWebSocket = useCallback((credentials: SessionCredentials) => {
+    const wsClient = new W3CWebSocket(`${WS_API_URL}?sessionId=${credentials.sessionId}`);
+    return wsClient;
+  }, []);
+
+  const onOpenHandler = useCallback((credentials: SessionCredentials, wsClient: W3CWebSocket) => {
+    setIsConnected(true);
+    setError(null);
+    wsClient.send(JSON.stringify(credentials));
+  }, []);
+
+  const onMessageHandler = useCallback((message: MessageEvent) => {
+    const data: DesktopSessionData = JSON.parse(message.data.toString());
+    setDesktopData(data);
+  }, []);
+
+  const onErrorHandler = useCallback((e: Event) => {
+    setError('WebSocket error. Check console for more details.');
+    console.error('WebSocket error:', e);
+  }, []);
+
+  const onCloseHandler = useCallback(() => {
     setIsConnected(false);
     setError('Connection closed. Attempting to reconnect...');
-    if (reconnectAttempts > 0) {
-      setTimeout(() => {
-        if (client) {
-          client.connect();
-        }
-      }, 5000); // Reconnect after 5 seconds
-      setReconnectAttempts(reconnectAttempts - 1);
+    if (reconnectAttempts > 0 && client) {
+      setTimeout(() => client.connect(), 5000); // Reconnect after 5 seconds
+      setReconnectAttempts(attempt => attempt - 1);
     }
   }, [reconnectAttempts, client]);
 
   const startSession = useCallback((credentials: SessionCredentials) => {
-    const wsClient = new W3CWebSocket(`${WS_API_URL}?sessionId=${credentials.sessionId}`);
-    wsClient.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-      wsClient.send(JSON.stringify(credentials));
-    };
-    wsClient.onmessage = (message) => {
-      const data: DesktopSessionData = JSON.parse(message.data.toString());
-      setDesktopData(data);
-    };
-    wsClient.onerror = (e) => {
-      setError('WebSocket error. Check console for more details.');
-      console.error('WebSocket error:', e);
-    };
-    wsClient.onclose = handleConnectionClose;
+    const wsClient = connectWebSocket(credentials);
+    wsClient.onopen = () => onOpenHandler(credentials, wsClient);
+    wsClient.onmessage = onMessageHandler;
+    wsClient.onerror = onErrorHandler;
+    wsClient.onclose = onCloseHandler;
     setClient(wsClient);
-  }, [handleConnectionClose]);
+  }, [connectWebSocket, onOpenHandler, onMessageHandler, onErrorHandler, onCloseHandler]);
 
   const endSession = useCallback(() => {
     if (client) {
