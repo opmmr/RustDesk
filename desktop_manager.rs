@@ -1,5 +1,5 @@
 use std::env; 
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
 use dotenv::dotenv;
@@ -9,7 +9,7 @@ struct DesktopStream {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Input&Event {
+struct InputEvent {
 }
 
 struct Session {
@@ -19,6 +19,11 @@ impl Session {
     fn new() -> Self {
         Self {
         }
+    }
+
+    async fn process_stream(&self, socket: &TcpStream) -> Result<()> {
+        
+        Ok(())
     }
 }
 
@@ -31,18 +36,13 @@ async fn start_remote_desktop_service(address: &str) -> Result<()> {
         let (socket, _) = listener.accept().await?;
 
         tokio::spawn(async move {
-            let _session = Session::new();
+            let session = Session::new();
 
-            if let Err(e) = process_stream_and_input(&socket).await {
+            if let Err(e) = session.process_stream(&socket).await {
                 eprintln!("Error processing stream/input: {}", e);
             }
         });
     }
-}
-
-async fn process_stream_and_input(socket: &tokio::net::TcpStream) -> Result<()> {
-
-    Ok(())
 }
 
 #[tokio::main]
@@ -52,6 +52,5 @@ async fn main() -> Result<()> {
     let address = env::var("REMOTE_DESKTOP_ADDRESS").unwrap_or_else(|_| "127.0.0.1:8080".into());
 
     start_remote_desktop_service(&address).await?;
-
     Ok(())
 }
