@@ -1,5 +1,4 @@
 use std::env;
-use stdn::net::SocketAddr;
 
 mod desktop_management {
     pub struct RemoteDesktopController {
@@ -9,10 +8,7 @@ mod desktop_management {
 
     impl RemoteDesktopController {
         pub fn new(secure: bool, server_address: String) -> Self {
-            RemoteDesktopController {
-                secure,
-                server_address,
-            }
+            RemoteDesktopController { secure, server_address }
         }
 
         pub fn execute_action(&self, action: &str) -> Result<String, &'static str> {
@@ -23,13 +19,11 @@ mod desktop_management {
             }
         }
 
-        /// Checks if the connection is secure.
         fn is_connection_secure(&self) -> bool {
             self.secure
         }
 
-        /// Formats the action to be executed securely.
-        fn format_secure_vehicle(&self, action: &str) -> String {
+        fn format_secure_action(&self, action: &str) -> String {
             format!("Securely executing '{}'", action)
         }
     }
@@ -55,11 +49,14 @@ mod tests {
     #[test]
     fn test_secure_connection() {
         let (secure, server_address) = setup();
-        
+
         let controller = RemoteDesktopController::new(secure, server_address);
 
         let result = controller.execute_action("Test Action");
-        assert!(result.is_ok(), "Should successfully execute action on a secure connection");
+        assert!(
+            result.is_ok(),
+            "Should successfully execute action on a secure connection"
+        );
     }
 
     #[test]
@@ -67,12 +64,10 @@ mod tests {
         let controller = RemoteDesktopController::new(false, "127.0.0.1:8081".to_string());
 
         let result = controller.execute_action("Test Action");
-        assert!(result.is_err(), "Should fail to execute action on an insecure connection");
-    }
-
-    #[test]
-    fn test_var ious_network_conditions() {
-        // Placeholder for future tests
+        assert!(
+            result.is_err(),
+            "Should fail to execute action on an insecure connection"
+        );
     }
 }
 
