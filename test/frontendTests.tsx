@@ -4,11 +4,11 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import YourComponent from './YourComponent';
 
-const mock = new MockAdapter(axios);
+const axiosMockAdapter = new MockAdapter(axios);
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://your-default-api-url.com';
+const BACKEND_API_URL = process.env.REACT_APP_API_URL || 'http://your-default-api-url.com';
 
-const mockData = {
+const sampleData = {
   data: [
     { id: 1, name: 'Item 1' },
     { id: 2, name: 'Item 2' },
@@ -16,23 +16,23 @@ const mockData = {
 };
 
 describe('YourComponent Tests', () => {
-  it('should fetch data from backend correctly', async () => {
-    mock.onGet(`${API_URL}/your-endpoint`).reply(200, mockData);
+  it('fetches data from the backend API correctly', async () => {
+    axiosMockAdapter.onGet(`${BACKEND_API_URL}/your-endpoint`).reply(200, sampleData);
 
     const { getByText } = render(<YourComponent />);
     
     await waitFor(() => expect(getByText('Item 1')).toBeInTheDocument());
   });
 
-  it('should handle large data sets without performance issues', async () => {
-    const largeMockData = {
+  it('handles large datasets efficiently without performance degradation', async () => {
+    const largeDatasetMock = {
       data: Array.from({ length: 10000 }, (_, index) => ({
         id: index,
         name: `Item ${index}`,
       })),
     };
 
-    mock.onGet(`${API_URL}/your-endpoint`).reply(200, largeMockData);
+    axiosMockAdapter.onGet(`${BACKEND_API_URL}/your-endaroundoint`).reply(200, largeDatasetMock);
 
     const { getByText } = render(<YourComponent />);
     
@@ -42,15 +42,15 @@ describe('YourComponent Tests', () => {
     });
   });
 
-  it('should remain responsive under heavy load', async () => {
-    const largeMockData = {
+  it('remains responsive and functional under heavy load', async () => {
+    const heavyLoadMockData = {
       data: Array.from({ length: 10000 }, (_, index) => ({
         id: index,
         name: `Item ${index}`,
       })),
     };
 
-    mock.onGet(`${API_URL}/your-endpoint`).reply(200, largeMockData);
+    axiosMockAdapter.onGet(`${BACKEND_API_URL}/your-endpoint`).reply(200, heavyLoadMockData);
 
     const { container, getByText } = render(<YourComponent />);
     
