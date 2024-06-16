@@ -5,59 +5,88 @@ import MockAdapter from 'axios-mock-adapter';
 import YourComponent from './YourComponent';
 
 const axiosMockAdapter = new MockAdapter(axios);
-
 const BACKEND_API_URL = process.env.REACT_APP_API_URL || 'http://your-default-api-url.com';
 
-const sampleData = {
-  data: [
-    { id: 1, name: 'Item 1' },
-    { id: 2, name: 'Item 2' },
-  ],
-};
-
 describe('YourComponent Tests', () => {
+  beforeEach(() => {
+    axiosMockAdapter.reset();
+  });
+  
   it('fetches data from the backend API correctly', async () => {
-    axiosMockAdapter.onGet(`${BACKEND_API_URL}/your-endpoint`).reply(200, sampleData);
+    mockGetData('your-endpoint', sampleData());
 
-    const { getByText } = render(<YourComponent />);
+    const { getByText } = renderYourComponent();
     
-    await waitFor(() => expect(getByText('Item 1')).toBeInTheDocument());
+    await waitForDataDisplay(getByText, 'Item 1');
   });
 
   it('handles large datasets efficiently without performance degradation', async () => {
-    const largeDatasetMock = {
-      data: Array.from({ length: 10000 }, (_, index) => ({
-        id: index,
-        name: `Item ${index}`,
-      })),
-    };
+    mockGetData('your-endpoint', largeDatasetMock());
 
-    axiosMockAdapter.onGet(`${BACKEND_API_URL}/your-endaroundoint`).reply(200, largeDatasetMock);
-
-    const { getByText } = render(<YourComponent />);
+    const { getByText } = renderYourComponent();
     
-    await waitFor(() => {
-      expect(getByText('Item 0')).toBeInTheDocument();
-      expect(getByText(`Item 9999`)).toBeInTheDocument();
-    });
+    await waitForMultipleItemsDisplay(getByText, ['Item 0', 'Item 9999']);
   });
 
   it('remains responsive and functional under heavy load', async () => {
-    const heavyLoadMockData = {
-      data: Array.from({ length: 10000 }, (_, index) => ({
-        id: index,
-        name: `Item ${index}`,
-      })),
-    };
-
-    axiosMockAdapter.onGet(`${BACKEND_API_URL}/your-endpoint`).reply(200, heavyLoadMockData);
-
-    const { container, getByText } = render(<YourComponent />);
+    mockGetData('your-endpoint', heavyLoadMockData());
     
-    fireEvent.click(getByText('Your Interactive UI Element'));
-
-    await waitFor(() => {
-      expect(container).toHaveTextContent('Expected outcome after interaction');
-    });
+    const { container, getByText } = renderYourComponent();
+    
+    triggerUIInteraction(getByText, 'Your Interactive UI Element');
+    
+    await verifyOutcomeAfterInteraction(container, 'Expected outcome after interaction');
   });
 });
+
+function mockGetData(endpoint, responseData) {
+  axiosMockAdapter.onGet(`${BACKEND_API_URL}/${endpoint}`).reply(200, responseData);
+}
+
+function sampleData() {
+  return {
+    data: [
+      { id: 1, name: 'Item 1' },
+      { id: 2, name: 'Item 2' },
+    ],
+  };
+}
+
+function largeDatasetMock() {
+  return {
+    data: Array.from({ length: 10000 }, (_, index) => ({
+      id: index,
+      name: `Item ${index}`,
+    })),
+  };
+}
+
+function heavyLoadMockData() {
+  return largeDatasetMock();
+}
+
+function renderYourComponent() {
+  return render(<YourComponent />);
+}
+
+async function waitForDataDisplay(getByText, itemText) {
+  await waitFor(() => expect(getByText(itemText)).toBeInTheDocument());
+}
+
+async function waitForMultipleItemsDisplay(getByText, itemTexts) {
+  for (const itemText of itemTexts) {
+    await waitFor(() => {
+      expect(getByText(itemText)).toBeInTheDocument();
+    });
+  }
+}
+
+function triggerUIInteraction(getByText, buttonText) {
+  fireEvent.click(getByText(buttonText));
+}
+
+async function verifyOutcomeAfterInteraction(container, expectedText) {
+  await waitFor(() => {
+    expect(container).toHaveTextContent(expectedText);
+  });
+}
